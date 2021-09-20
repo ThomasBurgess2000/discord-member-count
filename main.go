@@ -16,7 +16,7 @@ import (
 	"github.com/prometheus/common/log"
 )
 
-func main() {
+func readInvites() []string {
 	log.Info("Reading CSV...")
 	var links []string
 	csvfile, err := os.Open("serverlinks.csv")
@@ -34,14 +34,25 @@ func main() {
 		}
 		links = append(links, record[1])
 	}
-	log.Info("Starting scrape...")
+	return links
+}
 
+func startScrape(links []string) {
+	log.Info("Starting scrape...")
+	geziyor.NewGeziyor(&geziyor.Options{
+		StartURLs: links,
+		ParseFunc: quotesParse,
+		Exporters: []export.Exporter{&export.JSONLine{FileName: "servers.jl"}},
+	}).Start()
+}
+
+func main() {
+	links := readInvites()
+	startScrape(links)
+	log.Info("Starting 5 minute cycle...")
 	for range time.Tick(time.Minute * 5) {
-		geziyor.NewGeziyor(&geziyor.Options{
-			StartURLs: links,
-			ParseFunc: quotesParse,
-			Exporters: []export.Exporter{&export.JSONLine{FileName: "servers.jl"}},
-		}).Start()
+		links = readInvites()
+		startScrape(links)
 	}
 }
 
